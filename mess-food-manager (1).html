@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mess Food Manager · ഭക്ഷണ വിവരം</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Malayalam:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Firebase (for cross-device shared data). Fill in firebaseConfig near the top of the <script> below. -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<style>
+  :root{
+    --bg: #FAF6EC;
+    --paper: #FFFFFF;
+    --ink: #24301F;
+    --ink-soft: #5B6353;
+    --line: #E3DAC2;
+    --leaf: #3E5C34;
+    --leaf-dark: #2C4224;
+    --turmeric: #D99A2B;
+    --turmeric-soft: #F3E2BC;
+    --rust: #AF5236;
+    --rust-soft: #F2DED5;
+    --radius: 10px;
+  }
+
+  *{ box-sizing: border-box; }
+
+  html, body{
+    margin:0; padding:0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', 'Noto Sans Malayalam', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .ml{ font-family: 'Noto Sans Malayalam', 'Inter', sans-serif; }
+
+  .page{
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    background: var(--bg);
+    padding-bottom: 48px;
+  }
+
+  header.banner{
+    background: var(--leaf);
+    color: #F6F1E1;
+    padding: 28px 20px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  header.banner::after{
+    content:"";
+    position:absolute;
+    right:-30px; top:-30px;
+    width:140px; height:140px;
+    border-radius:50%;
+    background: rgba(217,154,43,0.18);
+  }
+  header.banner .eyebrow{
+    font-size: 13px;
+    color: var(--turmeric);
+    font-weight: 600;
+    margin: 0 0 6px;
+  }
+  header.banner h1{
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 28px;
+    line-height: 1.15;
+    margin: 0 0 4px;
+    position: relative;
+  }
+  header.banner p{
+    margin: 0;
+    font-size: 15px;
+    color: #DDE4CF;
+    position: relative;
+  }
+
+  main{ padding: 20px 16px 0; }
+
+  section.card{
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 18px 16px;
+    margin-bottom: 18px;
+  }
+
+  .card-head{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    margin-bottom: 14px;
+    border-bottom: 1px dashed var(--line);
+    padding-bottom: 10px;
+  }
+  .card-head h2{
+    font-family:'Fraunces', serif;
+    font-size: 19px;
+    font-weight: 600;
+    margin: 0;
+    color: var(--leaf-dark);
+  }
+  .card-head span{
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+
+  label{
+    display:block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+  }
+  label .lbl-ml{
+    font-weight: 500;
+    color: var(--ink-soft);
+  }
+
+  input[type="text"], input[type="date"]{
+    width: 100%;
+    padding: 11px 12px;
+    font-size: 15px;
+    font-family: inherit;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #FEFDFA;
+    color: var(--ink);
+    margin-bottom: 16px;
+  }
+  input[type="text"]:focus, input[type="date"]:focus,
+  button:focus-visible{
+    outline: 2px solid var(--turmeric);
+    outline-offset: 1px;
+  }
+
+  .meal-row{
+    margin-bottom: 14px;
+  }
+  .meal-row .meal-name{
+    display:flex;
+    justify-content: space-between;
+    align-items:baseline;
+    margin-bottom: 7px;
+  }
+  .meal-row .meal-name strong{
+    font-size: 14.5px;
+    font-weight: 600;
+  }
+  .meal-row .meal-name em{
+    font-style: normal;
+    font-family: 'Noto Sans Malayalam', sans-serif;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+
+  .toggle{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .toggle button{
+    font-family: 'Noto Sans Malayalam', 'Inter', sans-serif;
+    font-size: 14.5px;
+    font-weight: 600;
+    padding: 10px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: #FEFDFA;
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+  .toggle button.need.active{
+    background: var(--leaf);
+    border-color: var(--leaf);
+    color: #F6F1E1;
+  }
+  .toggle button.no.active{
+    background: var(--rust-soft);
+    border-color: var(--rust);
+    color: var(--rust);
+  }
+
+  .save-btn{
+    width: 100%;
+    padding: 13px;
+    margin-top: 6px;
+    border: none;
+    border-radius: 8px;
+    background: var(--turmeric);
+    color: #3B2A0B;
+    font-size: 15.5px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .save-btn:active{ transform: translateY(1px); }
+
+  .status-msg{
+    margin-top: 10px;
+    font-size: 13.5px;
+    color: var(--leaf-dark);
+    min-height: 18px;
+  }
+
+  .new-entry-btn{
+    width: 100%;
+    margin-top: 4px;
+    padding: 10px;
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--leaf-dark);
+    font-family: 'Noto Sans Malayalam', 'Inter', sans-serif;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .admin-gate{
+    text-align: center;
+    margin: 4px 0 18px;
+  }
+  .admin-link{
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    font-family: 'Noto Sans Malayalam', 'Inter', sans-serif;
+    font-size: 12.5px;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 6px;
+  }
+
+  .summary-controls{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .summary-controls input[type="date"]{ margin-bottom: 0; flex: 1; }
+
+  .counts{
+    display:grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .count-box{
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 6px;
+    text-align:center;
+    background: var(--turmeric-soft);
+  }
+  .count-box .num{
+    font-family: 'Fraunces', serif;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--leaf-dark);
+    display:block;
+  }
+  .count-box .lab{
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    display:block;
+    margin-top: 2px;
+  }
+  .count-box .lab-ml{
+    display:block;
+    font-family: 'Noto Sans Malayalam', sans-serif;
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+
+  .meal-list{
+    margin-bottom: 16px;
+  }
+  .meal-list h3{
+    font-size: 14px;
+    font-weight: 700;
+    margin: 0 0 8px;
+    display:flex;
+    align-items:baseline;
+    gap: 6px;
+  }
+  .meal-list h3 .ml{
+    font-weight: 500;
+    color: var(--ink-soft);
+    font-size: 12.5px;
+  }
+  .meal-list ul{
+    list-style:none;
+    margin:0; padding:0;
+    display:flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .meal-list li{
+    font-size: 13.5px;
+    background: #F0F4EA;
+    border: 1px solid #D8E2CB;
+    color: var(--leaf-dark);
+    padding: 5px 10px;
+    border-radius: 999px;
+  }
+  .meal-list .empty{
+    font-size: 13px;
+    color: var(--ink-soft);
+    font-style: italic;
+    background: none;
+    border: none;
+    padding: 0;
+  }
+
+  footer{
+    text-align:center;
+    font-size: 12px;
+    color: var(--ink-soft);
+    padding: 10px 24px 0;
+  }
+
+  .login-screen{
+    padding-top: 8px;
+  }
+  .login-screen .login-lead{
+    text-align:center;
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    margin: 0 0 18px;
+  }
+  .role-btn{
+    width: 100%;
+    display:block;
+    padding: 18px 16px;
+    margin-bottom: 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--line);
+    background: var(--paper);
+    text-align: left;
+    cursor: pointer;
+  }
+  .role-btn .role-title{
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--leaf-dark);
+    display:block;
+  }
+  .role-btn .role-sub{
+    font-family: 'Noto Sans Malayalam', 'Inter', sans-serif;
+    font-size: 13px;
+    color: var(--ink-soft);
+    display:block;
+    margin-top: 3px;
+  }
+  .role-btn.student{ border-left: 4px solid var(--leaf); }
+  .role-btn.admin{ border-left: 4px solid var(--turmeric); }
+
+  .admin-pin-box{
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-top: -2px;
+    margin-bottom: 12px;
+  }
+  .admin-pin-box input[type="password"]{
+    width: 100%;
+    padding: 11px 12px;
+    font-size: 15px;
+    letter-spacing: 3px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #FEFDFA;
+    color: var(--ink);
+    margin-bottom: 12px;
+  }
+
+  .back-btn{
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 0 14px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="banner">
+    <p class="eyebrow">AMAN MESS</p>
+    <h1>Mess Food Manager</h1>
+    <p class="ml">ഇന്ന് ഭക്ഷണം വേണോ? താഴെ രേഖപ്പെടുത്തുക</p>
+  </header>
+
+  <main>
+
+    <div class="login-screen" id="loginScreen">
+      <p class="login-lead ml">തുടരാൻ ഒരു ഓപ്ഷൻ തിരഞ്ഞെടുക്കുക</p>
+
+      <button class="role-btn student" id="studentRoleBtn">
+        <span class="role-title">Staff</span>
+        <span class="role-sub">ജീവനക്കാർ · Mark your food, no password needed</span>
+      </button>
+
+      <button class="role-btn admin" id="adminRoleBtn">
+        <span class="role-title">Admin</span>
+        <span class="role-sub">അഡ്മിൻ · View the daily list (PIN required)</span>
+      </button>
+
+      <div class="admin-pin-box" id="adminPinBox" style="display:none;">
+        <label for="adminPinInput">Admin PIN <span class="lbl-ml ml">· പിൻ</span></label>
+        <input type="password" id="adminPinInput" placeholder="Enter PIN">
+        <button class="save-btn" id="adminPinSubmit">Enter · പ്രവേശിക്കുക</button>
+        <button class="back-btn" id="adminPinCancel" style="padding-top:8px;">&larr; Back · തിരികെ</button>
+        <div class="status-msg" id="adminPinError"></div>
+      </div>
+    </div>
+
+    <div id="studentView" style="display:none;">
+      <button class="back-btn" id="studentBackBtn">&larr; Back · തിരികെ</button>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Mark your food</h2>
+        <span class="ml">നിങ്ങളുടെ വിവരം</span>
+      </div>
+
+      <label for="studentName">Name <span class="lbl-ml ml">· പേര്</span></label>
+      <input type="text" id="studentName" placeholder="Enter your name" autocomplete="name">
+
+      <label for="entryDate">Date <span class="lbl-ml ml">· തീയതി</span></label>
+      <input type="date" id="entryDate">
+
+      <div class="meal-row" data-meal="breakfast">
+        <div class="meal-name">
+          <strong>Breakfast</strong>
+          <em>പ്രഭാതഭക്ഷണം</em>
+        </div>
+        <div class="toggle">
+          <button type="button" class="need" data-value="need">വേണം · Need</button>
+          <button type="button" class="no" data-value="no">വേണ്ട · No</button>
+        </div>
+      </div>
+
+      <div class="meal-row" data-meal="lunch">
+        <div class="meal-name">
+          <strong>Lunch</strong>
+          <em>ഉച്ചഭക്ഷണം</em>
+        </div>
+        <div class="toggle">
+          <button type="button" class="need" data-value="need">വേണം · Need</button>
+          <button type="button" class="no" data-value="no">വേണ്ട · No</button>
+        </div>
+      </div>
+
+      <div class="meal-row" data-meal="dinner">
+        <div class="meal-name">
+          <strong>Dinner</strong>
+          <em>അത്താഴം</em>
+        </div>
+        <div class="toggle">
+          <button type="button" class="need" data-value="need">വേണം · Need</button>
+          <button type="button" class="no" data-value="no">വേണ്ട · No</button>
+        </div>
+      </div>
+
+      <button class="save-btn" id="saveBtn">Save · സേവ് ചെയ്യുക</button>
+      <div class="status-msg" id="statusMsg" aria-live="polite"></div>
+      <button class="new-entry-btn" id="newEntryBtn" style="display:none;">+ Add another staff · മറ്റൊരാൾക്ക്</button>
+    </section>
+    </div>
+
+    <div id="adminView" style="display:none;">
+      <button class="back-btn" id="adminBackBtn">&larr; Back · തിരികെ</button>
+
+    <section class="card" id="adminSection">
+      <div class="card-head">
+        <h2>Daily list</h2>
+        <span class="ml">ദിവസ വിവരം</span>
+      </div>
+
+      <div class="summary-controls">
+        <label style="margin:0; white-space:nowrap;">View date</label>
+        <input type="date" id="viewDate">
+      </div>
+
+      <div class="counts">
+        <div class="count-box">
+          <span class="num" id="countBreakfast">0</span>
+          <span class="lab">Breakfast</span>
+          <span class="lab-ml">പ്രഭാതം</span>
+        </div>
+        <div class="count-box">
+          <span class="num" id="countLunch">0</span>
+          <span class="lab">Lunch</span>
+          <span class="lab-ml">ഉച്ച</span>
+        </div>
+        <div class="count-box">
+          <span class="num" id="countDinner">0</span>
+          <span class="lab">Dinner</span>
+          <span class="lab-ml">അത്താഴം</span>
+        </div>
+      </div>
+
+      <div class="meal-list">
+        <h3>Breakfast <span class="ml">· വേണം എന്ന് പറഞ്ഞവർ</span></h3>
+        <ul id="listBreakfast"></ul>
+      </div>
+      <div class="meal-list">
+        <h3>Lunch <span class="ml">· വേണം എന്ന് പറഞ്ഞവർ</span></h3>
+        <ul id="listLunch"></ul>
+      </div>
+      <div class="meal-list">
+        <h3>Dinner <span class="ml">· വേണം എന്ന് പറഞ്ഞവർ</span></h3>
+        <ul id="listDinner"></ul>
+      </div>
+    </section>
+    </div>
+
+  </main>
+
+  <footer>
+    Data is stored only in this browser · Data ഈ ബ്രൗസറിൽ മാത്രം സൂക്ഷിക്കുന്നു
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  // =====================================================================
+  // FIREBASE SETUP — REQUIRED
+  // 1. Go to https://console.firebase.google.com  → Create a project (free).
+  // 2. In the project, click "Realtime Database" → Create Database →
+  //    start in TEST MODE (or set rules to {"rules": {".read": true, ".write": true}}
+  //    — fine for a simple no-login mess tool; anyone with the link can write).
+  // 3. Go to Project settings → General → "Your apps" → Add app → Web (</>) →
+  //    copy the firebaseConfig object it gives you and paste it below,
+  //    replacing the placeholder values.
+  // 4. Upload this file to Netlify Drop / GitHub Pages / Vercel and open
+  //    that hosted link on every device — NOT the Claude artifact preview.
+  // =====================================================================
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+    databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT_ID.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+
+  let dbReady = false;
+  let db = null;
+  try{
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+    dbReady = true;
+  }catch(e){
+    console.error('Firebase not configured yet:', e);
+  }
+
+  function todayStr(){
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  }
+
+  function nameKey(name){
+    return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'unnamed';
+  }
+
+  function dayRef(date){
+    return db.ref('messRecords/' + date);
+  }
+
+  async function findRecord(name, date){
+    if(!dbReady) throw new Error('offline');
+    const snap = await dayRef(date).child(nameKey(name)).get();
+    return snap.exists() ? snap.val() : null;
+  }
+
+  async function addRecord(record){
+    if(!dbReady) throw new Error('offline');
+    await dayRef(record.date).child(nameKey(record.name)).set(record);
+  }
+
+  async function loadRecordsForDate(date){
+    if(!dbReady) throw new Error('offline');
+    const snap = await dayRef(date).get();
+    return snap.exists() ? Object.values(snap.val()) : [];
+  }
+
+  // ---- Entry form ----
+  const nameInput = document.getElementById('studentName');
+  const entryDate = document.getElementById('entryDate');
+  const saveBtn = document.getElementById('saveBtn');
+  const statusMsg = document.getElementById('statusMsg');
+  const mealState = { breakfast: 'need', lunch: 'need', dinner: 'need' };
+
+  entryDate.value = todayStr();
+
+  document.querySelectorAll('.meal-row').forEach(row => {
+    const meal = row.getAttribute('data-meal');
+    const buttons = row.querySelectorAll('.toggle button');
+    buttons.forEach(btn => {
+      if(btn.getAttribute('data-value') === mealState[meal]){
+        btn.classList.add('active');
+      }
+      btn.addEventListener('click', () => {
+        buttons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        mealState[meal] = btn.getAttribute('data-value');
+      });
+    });
+  });
+
+  saveBtn.addEventListener('click', async () => {
+    const name = nameInput.value.trim();
+    const date = entryDate.value;
+
+    if(!name){
+      statusMsg.textContent = 'Please enter your name · പേര് നൽകുക';
+      statusMsg.style.color = 'var(--rust)';
+      nameInput.focus();
+      return;
+    }
+    if(!date){
+      statusMsg.textContent = 'Please select a date · തീയതി തിരഞ്ഞെടുക്കുക';
+      statusMsg.style.color = 'var(--rust)';
+      return;
+    }
+
+    saveBtn.disabled = true;
+    statusMsg.style.color = 'var(--ink-soft)';
+    statusMsg.textContent = 'Saving... · സേവ് ചെയ്യുന്നു...';
+
+    try{
+      const existing = await findRecord(name, date);
+      if(existing){
+        statusMsg.style.color = 'var(--rust)';
+        statusMsg.textContent = `${name} has already submitted for ${date} · ഇതിനകം സേവ് ചെയ്തു`;
+        lockEntryForm();
+        return;
+      }
+
+      await addRecord({
+        name: name,
+        date: date,
+        breakfast: mealState.breakfast,
+        lunch: mealState.lunch,
+        dinner: mealState.dinner
+      });
+
+      statusMsg.style.color = 'var(--leaf-dark)';
+      statusMsg.textContent = `Saved for ${name} · സേവ് ചെയ്തു`;
+
+      if(viewDate.value === date){
+        renderSummary(date);
+      }
+
+      lockEntryForm();
+    }catch(err){
+      statusMsg.style.color = 'var(--rust)';
+      statusMsg.textContent = 'Could not save — check your internet connection · സേവ് ചെയ്യാൻ കഴിഞ്ഞില്ല';
+      saveBtn.disabled = false;
+    }
+  });
+
+  const newEntryBtn = document.getElementById('newEntryBtn');
+
+  function lockEntryForm(){
+    nameInput.disabled = true;
+    entryDate.disabled = true;
+    saveBtn.disabled = true;
+    saveBtn.style.display = 'none';
+    document.querySelectorAll('.toggle button').forEach(b => b.disabled = true);
+    newEntryBtn.style.display = 'block';
+  }
+
+  function unlockEntryForm(){
+    nameInput.disabled = false;
+    entryDate.disabled = false;
+    saveBtn.disabled = false;
+    saveBtn.style.display = 'block';
+    document.querySelectorAll('.toggle button').forEach(b => b.disabled = false);
+    newEntryBtn.style.display = 'none';
+  }
+
+  newEntryBtn.addEventListener('click', () => {
+    nameInput.value = '';
+    ['breakfast','lunch','dinner'].forEach(meal => {
+      mealState[meal] = 'need';
+      const row = document.querySelector(`.meal-row[data-meal="${meal}"]`);
+      row.querySelectorAll('.toggle button').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-value') === 'need');
+      });
+    });
+    statusMsg.textContent = '';
+    unlockEntryForm();
+    nameInput.focus();
+  });
+
+  // ---- Login screen navigation ----
+  const ADMIN_PIN = 'shalu9583';
+  const loginScreen = document.getElementById('loginScreen');
+  const studentView = document.getElementById('studentView');
+  const adminView = document.getElementById('adminView');
+  const studentRoleBtn = document.getElementById('studentRoleBtn');
+  const adminRoleBtn = document.getElementById('adminRoleBtn');
+  const adminPinBox = document.getElementById('adminPinBox');
+  const adminPinInput = document.getElementById('adminPinInput');
+  const adminPinSubmit = document.getElementById('adminPinSubmit');
+  const adminPinError = document.getElementById('adminPinError');
+  const studentBackBtn = document.getElementById('studentBackBtn');
+  const adminBackBtn = document.getElementById('adminBackBtn');
+
+  function showLogin(){
+    loginScreen.style.display = 'block';
+    studentView.style.display = 'none';
+    adminView.style.display = 'none';
+    adminPinBox.style.display = 'none';
+    adminPinInput.value = '';
+    adminPinError.textContent = '';
+  }
+
+  function showStudent(){
+    loginScreen.style.display = 'none';
+    studentView.style.display = 'block';
+    adminView.style.display = 'none';
+  }
+
+  function showAdmin(){
+    loginScreen.style.display = 'none';
+    studentView.style.display = 'none';
+    adminView.style.display = 'block';
+    renderSummary(viewDate.value);
+  }
+
+  studentRoleBtn.addEventListener('click', showStudent);
+
+  adminRoleBtn.addEventListener('click', () => {
+    adminPinBox.style.display = adminPinBox.style.display === 'block' ? 'none' : 'block';
+    adminPinInput.value = '';
+    adminPinError.textContent = '';
+    if(adminPinBox.style.display === 'block'){
+      adminPinInput.focus();
+    }
+  });
+
+  function tryAdminLogin(){
+    if(adminPinInput.value === ADMIN_PIN){
+      showAdmin();
+    }else{
+      adminPinError.style.color = 'var(--rust)';
+      adminPinError.textContent = 'Incorrect PIN · തെറ്റായ പിൻ';
+      adminPinInput.value = '';
+      adminPinInput.focus();
+    }
+  }
+
+  adminPinSubmit.addEventListener('click', tryAdminLogin);
+  adminPinInput.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter') tryAdminLogin();
+  });
+
+  const adminPinCancel = document.getElementById('adminPinCancel');
+  adminPinCancel.addEventListener('click', () => {
+    adminPinBox.style.display = 'none';
+    adminPinInput.value = '';
+    adminPinError.textContent = '';
+  });
+
+  studentBackBtn.addEventListener('click', showLogin);
+  adminBackBtn.addEventListener('click', showLogin);
+
+  // ---- Summary ----
+  const viewDate = document.getElementById('viewDate');
+  viewDate.value = todayStr();
+
+  const countEls = {
+    breakfast: document.getElementById('countBreakfast'),
+    lunch: document.getElementById('countLunch'),
+    dinner: document.getElementById('countDinner')
+  };
+  const listEls = {
+    breakfast: document.getElementById('listBreakfast'),
+    lunch: document.getElementById('listLunch'),
+    dinner: document.getElementById('listDinner')
+  };
+
+  async function renderSummary(date){
+    ['breakfast','lunch','dinner'].forEach(meal => {
+      listEls[meal].innerHTML = '<li class="empty">Loading... · ലോഡ് ചെയ്യുന്നു</li>';
+    });
+
+    let records = [];
+    try{
+      records = await loadRecordsForDate(date);
+    }catch(err){
+      ['breakfast','lunch','dinner'].forEach(meal => {
+        countEls[meal].textContent = '—';
+        listEls[meal].innerHTML = '<li class="empty">Could not load — check connection · ലോഡ് ചെയ്യാൻ കഴിഞ്ഞില്ല</li>';
+      });
+      return;
+    }
+
+    ['breakfast','lunch','dinner'].forEach(meal => {
+      const needNames = records
+        .filter(r => r[meal] === 'need')
+        .map(r => r.name.trim())
+        .sort((a,b) => a.localeCompare(b));
+
+      countEls[meal].textContent = needNames.length;
+
+      const ul = listEls[meal];
+      ul.innerHTML = '';
+      if(needNames.length === 0){
+        const li = document.createElement('li');
+        li.className = 'empty';
+        li.textContent = 'No one yet · ആരും ഇല്ല';
+        ul.appendChild(li);
+      }else{
+        needNames.forEach(n => {
+          const li = document.createElement('li');
+          li.textContent = n;
+          ul.appendChild(li);
+        });
+      }
+    });
+  }
+
+  viewDate.addEventListener('change', () => renderSummary(viewDate.value));
+})();
+</script>
+</body>
+</html>
