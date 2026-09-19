@@ -394,6 +394,20 @@
     cursor: pointer;
     padding: 4px 0 14px;
   }
+
+  .clear-all-btn{
+    width: 100%;
+    margin-top: 6px;
+    padding: 11px;
+    border: 1px solid var(--rust);
+    border-radius: 8px;
+    background: var(--rust-soft);
+    color: var(--rust);
+    font-family: 'Noto Sans Malayalam', 'Inter', sans-serif;
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -527,6 +541,9 @@
         <h3>Dinner <span class="ml">· വേണം എന്ന് പറഞ്ഞവർ</span></h3>
         <ul id="listDinner"></ul>
       </div>
+
+      <button class="clear-all-btn" id="clearAllBtn">Clear all data · എല്ലാം ഡിലീറ്റ് ചെയ്യുക</button>
+      <div class="status-msg" id="clearAllMsg"></div>
     </section>
     </div>
 
@@ -560,6 +577,7 @@
   //    alter table mess_records enable row level security;
   //    create policy "public read" on mess_records for select using (true);
   //    create policy "public insert" on mess_records for insert with check (true);
+  //    create policy "public delete" on mess_records for delete using (true);
   //
   //    (This keeps it open/no-login, matching the rest of the site. Since
   //    it's a small internal mess tool this is an acceptable trade-off.)
@@ -626,6 +644,15 @@
       .eq('date', date);
     if(error) throw error;
     return data || [];
+  }
+
+  async function clearAllRecords(){
+    if(!dbReady) throw new Error('offline');
+    const { error } = await sb
+      .from('mess_records')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000');
+    if(error) throw error;
   }
 
   // ---- Entry form ----
@@ -699,7 +726,7 @@
       lockEntryForm();
     }catch(err){
       statusMsg.style.color = 'var(--rust)';
-      statusMsg.textContent = 'Could not save — check your internet connection · സേവ് ചെയ്യാൻ കഴിഞ്ഞില്ല';
+      statusMsg.textContent = 'Could not save: ' + (err && err.message ? err.message : 'unknown error');
       saveBtn.disabled = false;
     }
   });
@@ -868,6 +895,38 @@
   }
 
   viewDate.addEventListener('change', () => renderSummary(viewDate.value));
+
+  // ---- Clear all data (admin) ----
+  const clearAllBtn = document.getElementById('clearAllBtn');
+  const clearAllMsg = document.getElementById('clearAllMsg');
+
+  clearAllBtn.addEventListener('click', async () => {
+    const sure = confirm('This will permanently delete ALL saved food records for EVERY date. This cannot be undone. Continue?\n\nഇത് എല്ലാ ദിവസത്തെയും എല്ലാ വിവരങ്ങളും ശാശ്വതമായി ഡിലീറ്റ് ചെയ്യും. തുടരണോ?');
+    if(!sure) return;
+
+    const typed = prompt('Type DELETE to confirm:');
+    if(typed !== 'DELETE'){
+      clearAllMsg.style.color = 'var(--ink-soft)';
+      clearAllMsg.textContent = 'Cancelled — nothing was deleted.';
+      return;
+    }
+
+    clearAllBtn.disabled = true;
+    clearAllMsg.style.color = 'var(--ink-soft)';
+    clearAllMsg.textContent = 'Deleting... · ഡിലീറ്റ് ചെയ്യുന്നു...';
+
+    try{
+      await clearAllRecords();
+      clearAllMsg.style.color = 'var(--leaf-dark)';
+      clearAllMsg.textContent = 'All data deleted · എല്ലാം ഡിലീറ്റ് ചെയ്തു';
+      renderSummary(viewDate.value);
+    }catch(err){
+      clearAllMsg.style.color = 'var(--rust)';
+      clearAllMsg.textContent = 'Could not delete — check your internet connection.';
+    }finally{
+      clearAllBtn.disabled = false;
+    }
+  });
 })();
 </script>
 </body>
