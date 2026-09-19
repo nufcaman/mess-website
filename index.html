@@ -7,9 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Malayalam:wght@400;500;600;700&display=swap" rel="stylesheet">
-<!-- Firebase (for cross-device shared data). Fill in firebaseConfig near the top of the <script> below. -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<!-- Supabase (for cross-device shared data). Fill in SUPABASE_URL / SUPABASE_ANON_KEY near the top of the <script> below. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --bg: #FAF6EC;
@@ -542,35 +541,42 @@
 <script>
 (function(){
   // =====================================================================
-  // FIREBASE SETUP — REQUIRED
-  // 1. Go to https://console.firebase.google.com  → Create a project (free).
-  // 2. In the project, click "Realtime Database" → Create Database →
-  //    start in TEST MODE (or set rules to {"rules": {".read": true, ".write": true}}
-  //    — fine for a simple no-login mess tool; anyone with the link can write).
-  // 3. Go to Project settings → General → "Your apps" → Add app → Web (</>) →
-  //    copy the firebaseConfig object it gives you and paste it below,
-  //    replacing the placeholder values.
-  // 4. Upload this file to Netlify Drop / GitHub Pages / Vercel and open
-  //    that hosted link on every device — NOT the Claude artifact preview.
+  // SUPABASE SETUP — REQUIRED
+  // 1. Go to https://supabase.com → Sign in → New project (free, no card).
+  // 2. Once created, go to the SQL Editor (left sidebar) → New query,
+  //    paste and run this to create the table:
+  //
+  //    create table mess_records (
+  //      id uuid primary key default gen_random_uuid(),
+  //      name_key text not null,
+  //      name text not null,
+  //      date text not null,
+  //      breakfast text not null,
+  //      lunch text not null,
+  //      dinner text not null,
+  //      created_at timestamp default now(),
+  //      unique (name_key, date)
+  //    );
+  //    alter table mess_records enable row level security;
+  //    create policy "public read" on mess_records for select using (true);
+  //    create policy "public insert" on mess_records for insert with check (true);
+  //
+  //    (This keeps it open/no-login, matching the rest of the site. Since
+  //    it's a small internal mess tool this is an acceptable trade-off.)
+  // 3. Go to Project settings → API. Copy the "Project URL" and the
+  //    "anon public" key. Paste them below, replacing the placeholders.
+  // 4. Re-deploy this file to Vercel.
   // =====================================================================
-  const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-    databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
-  };
+  const SUPABASE_URL = 'https://abcdefghijk.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSI...';
 
   let dbReady = false;
-  let db = null;
+  let sb = null;
   try{
-    firebase.initializeApp(firebaseConfig);
-    db = firebase.database();
+    sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     dbReady = true;
   }catch(e){
-    console.error('Firebase not configured yet:', e);
+    console.error('Supabase not configured yet:', e);
   }
 
   function todayStr(){
@@ -585,25 +591,41 @@
     return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'unnamed';
   }
 
-  function dayRef(date){
-    return db.ref('messRecords/' + date);
-  }
-
   async function findRecord(name, date){
     if(!dbReady) throw new Error('offline');
-    const snap = await dayRef(date).child(nameKey(name)).get();
-    return snap.exists() ? snap.val() : null;
+    const { data, error } = await sb
+      .from('mess_records')
+      .select('*')
+      .eq('name_key', nameKey(name))
+      .eq('date', date)
+      .maybeSingle();
+    if(error) throw error;
+    return data;
   }
 
   async function addRecord(record){
     if(!dbReady) throw new Error('offline');
-    await dayRef(record.date).child(nameKey(record.name)).set(record);
+    const { error } = await sb
+      .from('mess_records')
+      .insert({
+        name_key: nameKey(record.name),
+        name: record.name,
+        date: record.date,
+        breakfast: record.breakfast,
+        lunch: record.lunch,
+        dinner: record.dinner
+      });
+    if(error) throw error;
   }
 
   async function loadRecordsForDate(date){
     if(!dbReady) throw new Error('offline');
-    const snap = await dayRef(date).get();
-    return snap.exists() ? Object.values(snap.val()) : [];
+    const { data, error } = await sb
+      .from('mess_records')
+      .select('*')
+      .eq('date', date);
+    if(error) throw error;
+    return data || [];
   }
 
   // ---- Entry form ----
